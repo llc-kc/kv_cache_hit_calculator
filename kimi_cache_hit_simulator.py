@@ -88,15 +88,20 @@ class PrefixHashCache:
         self.page_size = page_size
         self.entries: dict[str, CacheEntry] = {}
 
-    def lookup(self, page_hashes: Iterable[str]) -> int:
-        """Return the largest contiguous cached prefix, measured in pages."""
+    def lookup(
+        self, page_hashes: Iterable[str]
+    ) -> tuple[int, CacheEntry | None]:
+        """Return the cached prefix length and its furthest-page provenance."""
 
         matched_pages = 0
+        source_entry = None
         for page_hash in page_hashes:
-            if page_hash not in self.entries:
+            entry = self.entries.get(page_hash)
+            if entry is None:
                 break
             matched_pages += 1
-        return matched_pages
+            source_entry = entry
+        return matched_pages, source_entry
 
     def insert(self, page_hashes: Iterable[str], request_id: Any) -> None:
         """Make all of a completed request's page hashes available later."""
@@ -109,13 +114,16 @@ class PrefixHashCache:
 
     def query_then_insert(
         self, token_ids: Sequence[int], request_id: Any
-    ) -> tuple[list[str], int]:
-        """Query a request before inserting it, returning hashes and hit tokens."""
+    ) -> tuple[list[str], int, Any | None]:
+        """Query before insertion and return hashes, hit tokens, and source ID."""
 
         page_hashes = compute_page_hashes(token_ids, self.page_size)
-        matched_pages = self.lookup(page_hashes)
+        matched_pages, source_entry = self.lookup(page_hashes)
         self.insert(page_hashes, request_id)
-        return page_hashes, matched_pages * self.page_size
+        source_request_id = (
+            source_entry.request_id if source_entry is not None else None
+        )
+        return page_hashes, matched_pages * self.page_size, source_request_id
 
 
 class _OfflineModelConfig:
@@ -418,9 +426,11 @@ def main(argv: list[str] | None = None) -> int:
                     request_id = metadata.get(args.request_id_field)
                     if request_id is None:
                         request_id = line_number
-                    page_hashes, cache_hit_tokens = prefix_cache.query_then_insert(
-                        input_ids, request_id
-                    )
+                    (
+                        page_hashes,
+                        cache_hit_tokens,
+                        cache_hit_source_request_id,
+                    ) = prefix_cache.query_then_insert(input_ids, request_id)
                     cacheable_tokens = len(page_hashes) * prefix_cache.page_size
                     request_cache_hit_rate = (
                         cache_hit_tokens / len(input_ids) if input_ids else 0.0
@@ -436,6 +446,9 @@ def main(argv: list[str] | None = None) -> int:
                             ),
                             "cache_hit_tokens": cache_hit_tokens,
                             "cache_hit_rate": request_cache_hit_rate,
+                            "cache_hit_source_request_id": (
+                                cache_hit_source_request_id
+                            ),
                         }
                     )
                     if args.include_page_hashes:
@@ -444,11 +457,18 @@ def main(argv: list[str] | None = None) -> int:
                         request_id_json = json.dumps(
                             request_id, ensure_ascii=False, separators=(",", ":")
                         )
+                        source_request_id_json = json.dumps(
+                            cache_hit_source_request_id,
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        )
                         print(
                             f"request_id={request_id_json} "
                             f"num_tokens={len(input_ids)} "
                             f"cache_hit_tokens={cache_hit_tokens} "
-                            f"cache_hit_rate={request_cache_hit_rate:.2%}",
+                            f"cache_hit_rate={request_cache_hit_rate:.2%} "
+                            f"cache_hit_source_request_id="
+                            f"{source_request_id_json}",
                             file=sys.stderr,
                         )
 

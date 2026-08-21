@@ -1,9 +1,11 @@
 # kv_cache_hit_calculator
 Calculate the theoretical hit rate of requests
 
+You need run this script in sglang docker.
 
 
-example usage:
+
+Example usage:
 
 ```
 usage example
@@ -24,12 +26,18 @@ python kimi_cache_hit_simulator.py \
 包含请求内容的jsonl字符串文件。
 
 输出：
+理论命中率大小，每条请求的理论命中率大小。以及最终的平均命中率。
+启用 `--page-size` 后，每条输出还包含`cache_hit_source_request_id`：最长命中 page 首次由哪个请求写入；未命中时为`null`。
 
-理论命中率大小, example:
+同一 hash 后续再次出现时不会覆盖最初保存的请求 ID。该字段也会打印到stderr 日志（使用 `--quiet` 时除外）。
+
+example:
+
 ```
-request_id="9a4c19ae-fcb4-4df9-ac20-820393d97b97" num_tokens=5269 cache_hit_tokens=4736 cache_hit_rate=89.88%
-request_id="e696faa9-3114-4017-86ab-77e387a9a270" num_tokens=5771 cache_hit_tokens=4864 cache_hit_rate=84.28%
-request_id="be94a676-ae56-40d6-894c-a42b1f8174ab" num_tokens=4656 cache_hit_tokens=4224 cache_hit_rate=90.72%
-request_id="9d48d698-42fb-4e5d-ab2a-fb0d31408138" num_tokens=5698 cache_hit_tokens=4480 cache_hit_rate=78.62%
+request_id="9a4c19ae-fcb4-4df9-ac20-820393d97b97" num_tokens=5269 cache_hit_tokens=4736 cache_hit_rate=89.88% cache_hit_source_request_id="b2246729-240f-4ad1-8b61-ec5837d5d007"
+request_id="e696faa9-3114-4017-86ab-77e387a9a270" num_tokens=5771 cache_hit_tokens=4864 cache_hit_rate=84.28% cache_hit_source_request_id="85e24485-875c-4ce7-b38b-924e1b3568ad"
+request_id="be94a676-ae56-40d6-894c-a42b1f8174ab" num_tokens=4656 cache_hit_tokens=4224 cache_hit_rate=90.72% cache_hit_source_request_id="320f5600-4bd6-4d57-861c-1691c1e6535e"
+request_id="9d48d698-42fb-4e5d-ab2a-fb0d31408138" num_tokens=5698 cache_hit_tokens=4480 cache_hit_rate=78.62% cache_hit_source_request_id="de57f824-f707-4740-b5ce-25f8b4793aa8"
 Converted 1000 request(s); 0 failed. Request hit: 992/1000 requests (99.20%); cache hit: 8417792/11575414 prompt tokens (72.72%); 8417792/11543360 cacheable tokens (72.92%); 48837 unique page hashes.
 ```
+
