@@ -41,3 +41,6 @@ request_id="9d48d698-42fb-4e5d-ab2a-fb0d31408138" num_tokens=5698 cache_hit_toke
 Converted 1000 request(s); 0 failed. Request hit: 992/1000 requests (99.20%); cache hit: 8417792/11575414 prompt tokens (72.72%); 8417792/11543360 cacheable tokens (72.92%); 48837 unique page hashes.
 ```
 
+to do:
+当前主要针对kimi-k3，后续可以支持其他模型。
+
