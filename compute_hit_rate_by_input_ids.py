@@ -4,6 +4,8 @@ import struct
 import heapq
 
 import numpy as np
+import sys
+
 
 def compute_prefix_hash(prefix_hash: int, input_ids: list[int]) -> int:
     h = hashlib.blake2b(digest_size=16)
@@ -29,9 +31,20 @@ def get_prefix_hash_list(list_ids, page_size=64):
     return hash_list
 
 
-input_ids_all: list[list[int]] = []
+"""
+the input ids in the file should be like:
+[1, 2, 3]
+[4, 5, 6]
+"""
 
-input_file = "req_token_ids.log"
+input_file = sys.argv[1]
+
+out_file = input_file + ".full_hit.log"
+
+page_size = 64
+topk = 3
+
+input_ids_all: list[list[int]] = []
 
 with open(input_file, "r", encoding="utf-8") as file:
     for line in file:
@@ -42,7 +55,7 @@ with open(input_file, "r", encoding="utf-8") as file:
         input_ids = ast.literal_eval(line)
         input_ids_all.append(input_ids)
 
-print("load input_ids_all finish")
+print(f"load input_ids_all finish, num : {len(input_ids_all)}")
 
 def get_topk(data, k):
     topk = heapq.nlargest(k, enumerate(data), key=lambda x: x[1])
@@ -51,13 +64,12 @@ def get_topk(data, k):
     return values, indices
 
 
-page_size=64
-topk = 3
 req_hashes = [set(get_prefix_hash_list(input_ids, page_size)) for input_ids in input_ids_all]
 print("compute req_hashes finish")
 
-out_file = input_file + ".full_hit.log"
 
+
+# req_mamba_store_pos = []
 
 with open(out_file, "w") as f:
     for i, list_ids in enumerate(input_ids_all):
@@ -73,7 +85,23 @@ with open(out_file, "w") as f:
         hit_len = hit_pages * page_size
         hit_rate = hit_len / cur_len
 
-        log_str = f"input_len {cur_len}, input_len alined {cur_len_aligned}, cached_input_len: {hit_len}, cached_prev_ids: {indices}, hit_rate: {hit_rate}"
+        # # mamba hit logics
+        # mamba_store_pos = cur_len_aligned
+        # expected_mamba_hit = 0
+        # if len(hit_len) > 0:
+        #     max_hit_prev_id = indices[0]
+        #     max_hit_len = hit_len[0]
+        #     prev_mamba_pos = req_mamba_store_pos[max_hit_prev_id]
+        #     if prev_mamba_pos >0 and prev_mamba_pos <= max_hit_len:
+        #         expected_mamba_hit = prev_mamba_pos
+        #         mamba_store_pos = cur_len_aligned
+        #     else:
+        #         expected_mamba_hit = 0
+        #         mamba_store_pos = max_hit_len
+        # req_mamba_store_pos.append(mamba_store_pos)
+
+        cached_input_len_max = hit_len[0] if len(hit_len) else hit_len
+        log_str = f"input_len={cur_len}, cached_input_len={cached_input_len_max}, cached_input_len topk={hit_len}, cached_prev_ids: {indices}, hit_rate: {hit_rate}"
         print(log_str)
 
         f.write(log_str + "\n")
